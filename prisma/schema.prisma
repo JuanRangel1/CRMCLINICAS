@@ -1,0 +1,582 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Clinic {
+  id          String   @id @default(cuid())
+  name        String
+  legalName   String?
+  cnpj        String?  @unique
+  email       String
+  phone       String?
+  whatsapp    String?
+  logoUrl     String?
+  zipCode     String?
+  state       String?
+  city        String?
+  address     String?
+  number      String?
+  complement  String?
+  manager     String?
+  status      ClinicStatus @default(ACTIVE)
+  planId      String?
+  plan        Plan?   @relation(fields: [planId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  users       User[]
+  subscriptions Subscription[]
+  patients    Patient[]
+  leads       Lead[]
+  professionals Professional[]
+  rooms       Room[]
+  procedures  Procedure[]
+  treatments  Treatment[]
+  appointments Appointment[]
+  budgets     Budget[]
+  transactions Transaction[]
+  tasks       Task[]
+  followUps   FollowUp[]
+  notifications Notification[]
+  surveys     SatisfactionSurvey[]
+  auditLogs   AuditLog[]
+}
+
+enum ClinicStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+model Plan {
+  id               String @id @default(cuid())
+  code             PlanCode @unique
+  name             String
+  maxUsers         Int
+  maxProfessionals Int
+  maxPatients      Int
+  maxLeads         Int
+  storageMb        Int
+  hasReports       Boolean @default(true)
+  hasIntelligence  Boolean @default(false)
+  createdAt        DateTime @default(now())
+  clinics          Clinic[]
+  subscriptions    Subscription[]
+}
+
+enum PlanCode {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model Subscription {
+  id        String @id @default(cuid())
+  clinicId  String
+  clinic    Clinic @relation(fields: [clinicId], references: [id])
+  planId    String
+  plan      Plan @relation(fields: [planId], references: [id])
+  status    String @default("ACTIVE")
+  startsAt  DateTime @default(now())
+  endsAt    DateTime?
+}
+
+model Role {
+  id          String @id @default(cuid())
+  name        RoleName @unique
+  description String?
+  users       User[]
+  permissions RolePermission[]
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  ADMIN_CLINIC
+  MANAGER
+  RECEPTIONIST
+  PROFESSIONAL
+  FINANCIAL
+  MARKETING
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  resource    String
+  action      String
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  avatarUrl    String?
+  clinicId     String?
+  clinic       Clinic?  @relation(fields: [clinicId], references: [id])
+  roleId       String
+  role         Role     @relation(fields: [roleId], references: [id])
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  professional Professional?
+  refreshTokens RefreshToken[]
+  auditLogs    AuditLog[]
+  assignedLeads Lead[] @relation("LeadOwner")
+  tasks        Task[]
+  notifications Notification[]
+}
+
+model RefreshToken {
+  id        String @id @default(cuid())
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  token     String @unique
+  expiresAt DateTime
+  revoked   Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Specialty {
+  id            String @id @default(cuid())
+  name          String @unique
+  professionals Professional[]
+}
+
+model Professional {
+  id              String   @id @default(cuid())
+  name            String
+  cpf             String?
+  email           String?
+  phone           String?
+  photoUrl        String?
+  council         String?
+  registryNumber  String?
+  status          String   @default("ACTIVE")
+  schedule        Json?
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id])
+  specialtyId     String?
+  specialty       Specialty? @relation(fields: [specialtyId], references: [id])
+  userId          String?  @unique
+  user            User?    @relation(fields: [userId], references: [id])
+  appointments    Appointment[]
+  treatments      Treatment[]
+  budgets         Budget[]
+  commissions     Commission[]
+  surveys         SatisfactionSurvey[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+}
+
+model Room {
+  id           String @id @default(cuid())
+  name         String
+  clinicId     String
+  clinic       Clinic @relation(fields: [clinicId], references: [id])
+  appointments Appointment[]
+  @@unique([clinicId, name])
+}
+
+model Patient {
+  id           String   @id @default(cuid())
+  name         String
+  cpf          String?
+  birthDate    DateTime?
+  gender       String?
+  email        String?
+  phone        String?
+  whatsapp     String?
+  zipCode      String?
+  address      String?
+  number       String?
+  city         String?
+  state        String?
+  profession   String?
+  notes        String?
+  source       String?
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  leadId       String?  @unique
+  contacts     PatientContact[]
+  appointments Appointment[]
+  treatments   Treatment[]
+  budgets      Budget[]
+  transactions Transaction[]
+  followUps    FollowUp[]
+  surveys      SatisfactionSurvey[]
+  opportunities Opportunity[]
+  tasks        Task[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  @@index([clinicId])
+}
+
+model PatientContact {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  type      String
+  value     String
+  label     String?
+}
+
+model LeadSource {
+  id   String @id @default(cuid())
+  name String @unique
+  leads Lead[]
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  interest    String?
+  status      LeadStatus @default(NEW)
+  score       Int      @default(0)
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  sourceId    String?
+  source      LeadSource? @relation(fields: [sourceId], references: [id])
+  ownerId     String?
+  owner       User?    @relation("LeadOwner", fields: [ownerId], references: [id])
+  convertedToPatientId String?
+  activities  LeadActivity[]
+  opportunities Opportunity[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  @@index([clinicId])
+}
+
+enum LeadStatus {
+  NEW
+  FIRST_CONTACT
+  QUALIFIED
+  SCHEDULING
+  ATTENDED
+  BUDGET
+  CONVERTED
+  LOST
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  type      String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Pipeline {
+  id        String @id @default(cuid())
+  name      String @default("Comercial")
+  clinicId  String
+  stages    PipelineStage[]
+  createdAt DateTime @default(now())
+}
+
+model PipelineStage {
+  id          String @id @default(cuid())
+  name        String
+  order       Int
+  pipelineId  String
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id])
+  opportunities Opportunity[]
+}
+
+model Opportunity {
+  id        String   @id @default(cuid())
+  title     String
+  value     Float    @default(0)
+  stageId   String
+  stage     PipelineStage @relation(fields: [stageId], references: [id])
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  clinicId  String
+  ownerId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Procedure {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?
+  description String?
+  durationMin Int      @default(30)
+  price       Float    @default(0)
+  commission  Float    @default(0)
+  status      String   @default("ACTIVE")
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  appointments Appointment[]
+  treatmentProcedures TreatmentProcedure[]
+  budgetItems BudgetItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+
+model Appointment {
+  id             String   @id @default(cuid())
+  startAt        DateTime
+  endAt          DateTime
+  status         AppointmentStatus @default(SCHEDULED)
+  notes          String?
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id])
+  roomId         String?
+  room           Room?    @relation(fields: [roomId], references: [id])
+  procedureId    String?
+  procedure      Procedure? @relation(fields: [procedureId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([clinicId, startAt])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+  NO_SHOW
+  RESCHEDULED
+}
+
+model Treatment {
+  id          String   @id @default(cuid())
+  name        String
+  status      TreatmentStatus @default(PLANNED)
+  startDate   DateTime?
+  expectedEnd DateTime?
+  value       Float @default(0)
+  evolution   String?
+  clinicId    String
+  clinic      Clinic @relation(fields: [clinicId], references: [id])
+  patientId   String
+  patient     Patient @relation(fields: [patientId], references: [id])
+  professionalId String?
+  professional Professional? @relation(fields: [professionalId], references: [id])
+  procedures  TreatmentProcedure[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+
+enum TreatmentStatus {
+  PLANNED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+model TreatmentProcedure {
+  id          String @id @default(cuid())
+  treatmentId String
+  treatment   Treatment @relation(fields: [treatmentId], references: [id])
+  procedureId String
+  procedure   Procedure @relation(fields: [procedureId], references: [id])
+  quantity    Int @default(1)
+  price       Float @default(0)
+}
+
+model Budget {
+  id             String   @id @default(cuid())
+  total          Float    @default(0)
+  discount       Float    @default(0)
+  status         BudgetStatus @default(DRAFT)
+  validUntil     DateTime?
+  notes          String?
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  professionalId String?
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  items          BudgetItem[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+}
+
+enum BudgetStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model BudgetItem {
+  id          String @id @default(cuid())
+  budgetId    String
+  budget      Budget @relation(fields: [budgetId], references: [id])
+  procedureId String?
+  procedure   Procedure? @relation(fields: [procedureId], references: [id])
+  description String
+  quantity    Int @default(1)
+  unitPrice   Float
+  total       Float
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  type        TxType
+  category    String
+  description String?
+  amount      Float
+  status      TxStatus @default(PENDING)
+  dueDate     DateTime?
+  paidAt      DateTime?
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  patientId   String?
+  patient     Patient? @relation(fields: [patientId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  commissions Commission[]
+  @@index([clinicId])
+}
+
+enum TxType {
+  INCOME
+  EXPENSE
+}
+
+enum TxStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+model Commission {
+  id             String   @id @default(cuid())
+  amount         Float
+  percentage     Float
+  clinicId       String
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id])
+  transactionId  String?
+  transaction    Transaction? @relation(fields: [transactionId], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  done      Boolean  @default(false)
+  dueDate   DateTime?
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  assignedToId String?
+  assignedTo User?   @relation(fields: [assignedToId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FollowUp {
+  id        String   @id @default(cuid())
+  title     String
+  note      String?
+  dueDate   DateTime
+  done      Boolean  @default(false)
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id       String   @id @default(cuid())
+  title    String
+  body     String?
+  read     Boolean  @default(false)
+  clinicId String
+  clinic   Clinic   @relation(fields: [clinicId], references: [id])
+  userId   String?
+  user     User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model SatisfactionSurvey {
+  id             String   @id @default(cuid())
+  rating         Int
+  comment        String?
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  patientId      String?
+  patient        Patient? @relation(fields: [patientId], references: [id])
+  professionalId String?
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  procedureId    String?
+  createdAt      DateTime @default(now())
+}
+
+model CustomField {
+  id       String @id @default(cuid())
+  name     String
+  type     String
+  options  Json?
+  entity   String
+  clinicId String
+  createdAt DateTime @default(now())
+}
+
+model CustomFieldValue {
+  id          String @id @default(cuid())
+  fieldId     String
+  entityId    String
+  value       String?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  clinicId  String?
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+  action    String
+  entity    String?
+  entityId  String?
+  ip        String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+  @@index([clinicId, createdAt])
+}

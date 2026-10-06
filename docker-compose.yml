@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: crm_clinicas
+    ports: ['5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/crm_clinicas?schema=public
+      JWT_ACCESS_SECRET: change-me-access
+      JWT_REFRESH_SECRET: change-me-refresh
+      CORS_ORIGIN: http://localhost:3000
+    depends_on: [db]
+    ports: ['3001:3001']
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    depends_on: [backend]
+    ports: ['3000:3000']
+
+volumes:
+  pgdata:
